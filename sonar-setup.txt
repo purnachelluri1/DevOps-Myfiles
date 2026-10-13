@@ -1,0 +1,51 @@
+To change the java version --> sudo alternatives --config java
+
+
+
+#! /bin/bash
+#Launch an instance with 9000 and t2.medium
+cd /opt/
+wget https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-26.9.0.129388.zip
+unzip sonarqube-26.9.0.129388.zip
+yum install java-17-amazon-corretto -y
+useradd sonar
+chown sonar:sonar sonarqube-8.9.6.50800 -R
+chmod 777 sonarqube-8.9.6.50800 -R
+su - sonar
+
+#run this on server manually
+#sh /opt/sonarqube-8.9.6.50800/bin/linux/sonar.sh start
+#echo "user=admin & password=admin"
+
+
+
+pipeline {
+    agent any 
+    tools {
+        maven "my-maven"
+    }
+    stages {
+        stage ('code') {
+            steps {
+                git 'https://github.com/purnachelluri1/one.git'
+            }
+        }
+        stage ('build and test') {
+            steps {
+                sh 'mvn clean install'
+            }
+        }
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('mysonar') {
+                    sh 'mvn clean verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=jenkins -Dsonar.projectName=jenkins'
+                }
+            }
+        }
+        stage('Quality gates') {
+            steps {
+                waitForQualityGate abortPipeline: true, credentialsId: 'sonar'
+            }
+        }
+    }
+}

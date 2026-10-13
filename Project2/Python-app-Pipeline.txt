@@ -1,0 +1,76 @@
+pipeline {
+    agent {
+        label 'dev'
+    }
+    stages {
+        stage ('code') {
+            steps {
+                git "https://github.com/purnachelluri1/python-code-library-app.git"     
+            }
+        }
+        stage ('CQA') {
+            steps {
+                script {
+                    def scannerHome = tool 'SonarScanner'
+                    withSonarQubeEnv("mysonar") {
+                        sh """
+                            ${scannerHome}/bin/sonar-scanner \
+                            -Dsonar.projectKey=python-code-library-app \
+                            -Dsonar.projectName='Python Code Library App' \
+                            -Dsonar.sources=. \
+                            -Dsonar.sourceEncoding=UTF-8 \
+                            -Dsonar.exclusions='**/venv/**,**/.venv/**,**/__pycache__/**,**/*.pyc'
+                        """
+                    }
+                }
+            }
+        }
+        stage ("QualityGates") {
+            steps {
+                waitForQualityGate abortPipeline: true, credentialsId: 'token'
+            }
+        }
+        stage('Docker Image Build') {
+            steps {
+                sh '''
+                    docker-compose config
+                    docker-compose build
+                    docker images
+                '''
+            }
+        }
+        stage ('trivy scan') {
+            steps {
+                sh 'trivy image db:v1'
+                sh 'trivy image auth:v1'
+                sh 'trivy image book:v1'
+                sh 'trivy image borrow:v1'
+                sh 'trivy image frontend:v1'
+            }
+        }
+        stage ('docekrhub') {
+            steps {
+                script {
+                    // This step should not normally be used in your script. Consult the inline help for details.
+                    withDockerRegistry {
+                        sh 'docker tag db:v1 vasuch2626/python-app/db:v1'
+                        sh 'docker tag book:v1 vasuch2626/python-app/book:v1'
+                        sh 'docker tag auth:v1 vasuch2626/python-app/auth:v1'
+                        sh 'docker tag borrow:v1 vasuch2626/python-app/borrow:v1'
+                        sh 'docker tag frontend:v1 vasuch2626/python-app/frontend:v1'
+                        sh 'docker push vasuch2626/python-app/db:v1'
+                        sh 'docker push vasuch2626/python-app/book:v1'
+                        sh 'docker push vasuch2626/python-app/auth:v1'
+                        sh 'docker push vasuch2626/python-app/borrow:v1'
+                        sh 'docker push vasuch2626/python-app/frontend:v1'
+                    }
+                }
+            }
+        }
+        stage ('deploy') {
+            steps {
+                sh 'docker stack deplpoy --compose-file=compose.yml'
+            }
+        }
+    }
+}

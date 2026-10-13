@@ -1,0 +1,62 @@
+pipeline {
+    agent {
+        label 'manager'
+    }
+    tools {
+        maven "mymaven"
+    }
+    stages {
+        stage ('code') {
+            steps {
+                git "https://github.com/purnachelluri1/dockerwebapp.git"
+            }
+        }
+        stage ('build') {
+            steps {
+                sh 'mvn clean install'
+            }
+        }
+        stage ('CQA') {
+            steps {
+                withSonarQubeEnv("mysonar") {
+                    sh "mvn clean verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=jenkins -Dsonar.projectName=jenkins"
+                }
+            }
+        }
+        stage ("Nexus") {
+            steps {
+                nexusArtifactUploader artifacts: [[artifactId: 'vprofile', classifier: '', file: 'target/vprofile-v2.war', type: 'war']], credentialsId: 'nexus', groupId: 'com.visualpathit', nexusUrl: '3.238.3.199:8081', nexusVersion: 'nexus3', protocol: 'http', repository: 'myrepo', version: 'v2'
+            }
+        }
+        stage ('image build') {
+            steps {
+                sh 'cp -r target Docker-app/'
+                sh 'docker build -t appimage Docker-app'
+                sh 'docker build -t dbimage Docker-db'
+            }
+        }
+        stage ('trivy scan') {
+            steps {
+                sh 'trivy image appimage >> appimage-report.txt' 
+                sh 'trivy image dbimage >> db-report.txt'
+            }
+        }
+        stage ('Registry') {
+            steps {
+                script {
+                    withDockerRegistry(credentialsId: 'dockerhub') {
+                        sh 'docker tag appimage vasuch2626/javapp:v1'
+                        sh 'docker tag appimage vasuch2626/db:v1'
+                        sh 'docker push vasuch2626/javapp:v1'
+                        sh 'docker push vasuch2626/db:v1'
+                    }
+                }
+            }
+        }
+        stage ('deploy') {
+            steps {
+                sh 'docker stack deploy javaapplication --compose-file=compose.yml'
+            }
+        }
+    }
+}

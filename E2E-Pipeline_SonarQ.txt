@@ -1,0 +1,35 @@
+pipeline {
+    agent any 
+    tools {
+        maven "my-maven"
+    }
+    stages {
+        stage ('code') {
+            steps {
+                git 'https://github.com/purnachelluri1/one.git'
+            }
+        }
+        stage ('build and test') {
+            steps {
+                sh 'mvn clean install'
+            }
+        }
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('mysonar') {
+                    sh 'mvn clean verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=jenkins -Dsonar.projectName=jenkins'
+                }
+            }
+        }
+        stage('Quality gates') {
+            steps {
+                waitForQualityGate abortPipeline: true, credentialsId: 'sonar'
+            }
+        }
+        stage('Tomcat') {
+            steps {
+                deploy adapters: [tomcat9(alternativeDeploymentContext: '', credentialsId: 'tomcat99', path: '', url: 'http://100.63.210.121:8080/')], contextPath: 'application', war: 'target/*.war'            
+            }
+        }
+    }
+}

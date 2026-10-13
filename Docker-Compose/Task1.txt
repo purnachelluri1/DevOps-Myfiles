@@ -1,0 +1,65 @@
+take Jenkins server and dwnld docker and compose as well
+code
+maven build 
+cqa 
+store artifact
+create images for application and db as well
+scan images using trivy
+write a compose file and put it in docker and run that in pipeline
+
+
+
+
+
+
+
+
+Pipeline Script:
+-======================
+
+pipeline {
+    agent any
+    tools {
+        maven "mymaven"
+    }
+    stages {
+        stage ('code') {
+            steps {
+                git 'https://github.com/purnachelluri1/dockerwebapp.git'
+            }
+        }
+        stage ('maven build') {
+            steps {
+                sh 'mvn clean install'
+            }
+        }
+        stage ('CQA') {
+            steps {
+                withSonarQubeEnv('mysonar') {
+                    sh "${tool 'mymaven'}/bin/mvn clean verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=jenkins -Dsonar.projectName='jenkins'"
+                }
+            }
+        }
+        stage ('QualityGate') {
+            steps {
+                waitForQualityGate abortPipeline: true, credentialsId: 'token'
+            }
+        }
+        stage ('nexus uploader') {
+            steps {
+                nexusArtifactUploader artifacts: [[artifactId: 'vprofile', classifier: '', file: 'target/vprofile-v2.war', type: 'war']], credentialsId: 'nexus3', groupId: 'com.visualpathit', nexusUrl: '34.229.82.82:8081', nexusVersion: 'nexus3', protocol: 'http', repository: 'myrepo', version: 'v2'
+            }
+        }
+        stage ('image build') {
+            steps {
+                sh 'docker build -t appimage:v1 -f Docker-app/Dockerfile .'
+                sh 'docker build -t devopsdb:v1 -f Docker-db/Dockerfile .'
+            }
+        }
+        stage ('compose') {
+            steps {
+                sh 'docker-compose up -d '
+            }
+        }
+    }
+}

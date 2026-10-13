@@ -1,0 +1,27 @@
+pipeline {
+    agent any
+    environment {
+        MY_CONT = "mycontainer-${BUILD_NUMBER}"
+    }
+    stages {
+        stage ('code') {
+            steps {
+                git branch: 'main', url: 'https://github.com/purnachelluri1/docker-pipeline.git'
+            }
+        }
+        stage ('build and test') {
+            steps {
+                script {
+                    sh 'docker build -t htmlapp:${BUILD_NUMBER} .'   
+                }    
+            }
+        }
+        stage ('run') {
+            steps {
+                script {
+                    sh 'docker run -d --name $MY_CONT -p 1114:80 htmlapp:${BUILD_NUMBER}'
+                }
+            }
+        }
+    }
+}

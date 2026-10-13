@@ -1,0 +1,17 @@
+First we have to install any one of the orchestration tool ----> docker
+
+then we have to install MINIKUBE from official doc
+
+then --> minikube start --driver=docker --force after enter "y"
+
+MINIKUBE installed --> minikube status	
+
+==================================================================
+
+then we have to install "kubectl"  to run the cmds from web
+kubectl file will be add when you check (ll)
+
+chmod +x kubectl
+mv kubectl /usr/local/bin
+
+then "kubectl get pods"

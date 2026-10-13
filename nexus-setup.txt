@@ -1,0 +1,7 @@
+cd /opt
+wget https://download.sonatype.com/nexus/3/nexus-3.96.0-09-linux-x86_64.tar.gz
+
+then unzip tar --> tar -zxvf <file>
+
+you have to run the nexus file using nexus user not the root 
+

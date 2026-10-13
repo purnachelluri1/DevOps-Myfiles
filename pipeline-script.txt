@@ -1,0 +1,47 @@
+pipeline {
+    agent {
+        label 'dev'
+    }
+    tools {
+        maven 'my-maven'
+    }
+    environment {
+        Pipeline = "dev-pipeline"
+    }
+    stages{
+        stage ('code') {
+            steps{
+                git 'https://github.com/purnachelluri1/one.git'                
+            }
+        }
+        stage ('build and unitest') {
+            steps {
+                echo "this is my ${Pipeline} "
+                sh "mvn clean install"
+            }
+        }
+        stage ('deploy') {
+            steps {
+                deploy adapters: [tomcat9(alternativeDeploymentContext: '', credentialsId: 'tomcat', path: '', url: 'http://35.175.207.3:8080/')], contextPath: 'vasumart', war: 'target/*.war'
+            }
+        }
+        stage ('artifact uploading') {
+            steps {
+                nexusArtifactUploader artifacts: [[artifactId: 'myweb', classifier: '', file: 'target/myweb.war', type: 'war']], credentialsId: 'nexus', groupId: 'in.javahome', nexusUrl: '52.206.25.197:8081', nexusVersion: 'nexus3', protocol: 'http', repository: 'my-repo', version: '8.8.6'
+            }
+        }
+    }
+    post {
+        success {
+            mail to: 'vasuchelluri5@gmail.com',
+            subject: "Build Status: ${currentBuild.fullDisplayName}",
+            body: "The build ${env.BUILD_NUMBER} finished with status: ${currentBuild.currentResult}. View logs at: ${env.BUILD_URL}"
+        }
+        failure {
+            mail to: 'vasuchelluri5@gmail.com',
+            subject: "Build Status: ${currentBuild.fullDisplayName}",
+            body: "The build ${env.BUILD_NUMBER} finished with status: ${currentBuild.currentResult}. View logs at: ${env.BUILD_URL}"
+        }
+        
+    }
+}
